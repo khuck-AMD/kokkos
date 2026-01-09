@@ -38,7 +38,8 @@ bool xnack_boot_config_has_hmm_mirror();
 // allocated memory
 constexpr bool gpu_arch_can_access_system_allocations() {
 #if defined(KOKKOS_ARCH_AMD_GFX908) || defined(KOKKOS_ARCH_AMD_GFX90A) || \
-    defined(KOKKOS_ARCH_AMD_GFX942) || defined(KOKKOS_ARCH_AMD_GFX942_APU)
+    defined(KOKKOS_ARCH_AMD_GFX942) || defined(KOKKOS_ARCH_AMD_GFX942_APU) || \
+    defined(KOKKOS_ARCH_AMD_GFX950)
   return true;
 #elif defined(KOKKOS_ARCH_AMD_GFX906) || defined(KOKKOS_ARCH_AMD_GFX1103) || \
     defined(KOKKOS_ARCH_AMD_GFX1100) || defined(KOKKOS_ARCH_AMD_GFX1030) ||  \
