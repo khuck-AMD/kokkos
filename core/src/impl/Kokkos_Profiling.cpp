@@ -795,9 +795,8 @@ void initialize(const std::string& profileLibrary) {
       Experimental::declare_input_type("kokkos.kernel_type", kernel_type);
 
   Experimental::VariableInfo problem_size;
-  problem_size.type = Experimental::ValueType::kokkos_value_int64;
-  problem_size.category =
-      Experimental::StatisticalCategory::kokkos_value_ratio;
+  problem_size.type     = Experimental::ValueType::kokkos_value_int64;
+  problem_size.category = Experimental::StatisticalCategory::kokkos_value_ratio;
   problem_size.valueQuantity =
       Experimental::CandidateValueType::kokkos_value_unbounded;
   Experimental::problem_size_context_variable_id =
