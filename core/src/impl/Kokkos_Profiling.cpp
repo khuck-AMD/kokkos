@@ -294,7 +294,8 @@ static void updateProfileLibraryState() {
 }
 
 void beginParallelFor(const std::string& kernelPrefix, const uint32_t devID,
-                      uint64_t* kernelID, int64_t problemSize) {
+                      uint64_t* kernelID,
+                      [[maybe_unused]] int64_t problemSize) {
   Experimental::invoke_kokkosp_callback(
       Experimental::MayRequireGlobalFencing::Yes,
       Experimental::current_callbacks.begin_parallel_for, kernelPrefix.c_str(),
@@ -327,7 +328,8 @@ void endParallelFor(const uint64_t kernelID) {
 }
 
 void beginParallelScan(const std::string& kernelPrefix, const uint32_t devID,
-                       uint64_t* kernelID, int64_t problemSize) {
+                       uint64_t* kernelID,
+                       [[maybe_unused]] int64_t problemSize) {
   Experimental::invoke_kokkosp_callback(
       Experimental::MayRequireGlobalFencing::Yes,
       Experimental::current_callbacks.begin_parallel_scan, kernelPrefix.c_str(),
@@ -360,7 +362,8 @@ void endParallelScan(const uint64_t kernelID) {
 }
 
 void beginParallelReduce(const std::string& kernelPrefix, const uint32_t devID,
-                         uint64_t* kernelID, int64_t problemSize) {
+                         uint64_t* kernelID,
+                         [[maybe_unused]] int64_t problemSize) {
   Experimental::invoke_kokkosp_callback(
       Experimental::MayRequireGlobalFencing::Yes,
       Experimental::current_callbacks.begin_parallel_reduce,
