@@ -701,36 +701,9 @@ void pre_initialize_internal(const Kokkos::InitializationSettings& settings) {
   declare_configuration_metadata("architecture", "GPU architecture", "BLACKWELL120");
 #elif defined(KOKKOS_ARCH_BLACKWELL121)
   declare_configuration_metadata("architecture", "GPU architecture", "BLACKWELL121");
-#elif defined(KOKKOS_ARCH_AMD_GFX906)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX906");
-#elif defined(KOKKOS_ARCH_AMD_GFX908)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX908");
-#elif defined(KOKKOS_ARCH_AMD_GFX90A)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX90A");
-#elif defined(KOKKOS_ARCH_AMD_GFX940)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX940");
-#elif defined(KOKKOS_ARCH_AMD_GFX942_APU)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX942_APU");
-#elif defined(KOKKOS_ARCH_AMD_GFX942)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX942");
-#elif defined(KOKKOS_ARCH_AMD_GFX950)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX950");
-#elif defined(KOKKOS_ARCH_AMD_GFX1030)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1030");
-#elif defined(KOKKOS_ARCH_AMD_GFX1100)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1100");
-#elif defined(KOKKOS_ARCH_AMD_GFX1101)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1101");
-#elif defined(KOKKOS_ARCH_AMD_GFX1103)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1103");
-#elif defined(KOKKOS_ARCH_AMD_GFX1151)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1151");
-#elif defined(KOKKOS_ARCH_AMD_GFX1152)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1152");
-#elif defined(KOKKOS_ARCH_AMD_GFX1201)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GFX1201");
-#elif defined(KOKKOS_ARCH_AMD_GCNSPIRV)
-  declare_configuration_metadata("architecture", "GPU architecture", "AMD_GCNSPIRV");
+#elif defined(KOKKOS_ARCH_AMD_GPU)
+  declare_configuration_metadata("architecture", "GPU architecture",
+                                 KOKKOS_ARCH_AMD_GPU);
 #else
   declare_configuration_metadata("architecture", "GPU architecture", "none");
 #endif
