@@ -18,6 +18,8 @@
 #include <algorithm>
 #include <cctype>
 #include <cstring>
+#include <string>
+#include <cctype>
 #include <iostream>
 #include <sstream>
 #include <cstdlib>
@@ -702,8 +704,17 @@ void pre_initialize_internal(const Kokkos::InitializationSettings& settings) {
 #elif defined(KOKKOS_ARCH_BLACKWELL121)
   declare_configuration_metadata("architecture", "GPU architecture", "BLACKWELL121");
 #elif defined(KOKKOS_ARCH_AMD_GPU)
+  // Keep the architecture consistent with past kokkos versions, i.e. AMD_GFX942
+  auto make_upper_prefixed = [](const std::string& input) {
+      const std::string prefix="AMD_";
+      std::string result = prefix + input;
+      for (char& c : result) {
+          c = std::toupper(static_cast<unsigned char>(c));
+      }
+      return result;
+  };
   declare_configuration_metadata("architecture", "GPU architecture",
-                                 KOKKOS_ARCH_AMD_GPU);
+                                 make_upper_prefixed(KOKKOS_ARCH_AMD_GPU));
 #else
   declare_configuration_metadata("architecture", "GPU architecture", "none");
 #endif
