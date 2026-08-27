@@ -706,12 +706,40 @@ void pre_initialize_internal(const Kokkos::InitializationSettings& settings) {
 #elif defined(KOKKOS_ARCH_AMD_GPU)
   // Keep the architecture consistent with past kokkos versions, i.e. AMD_GFX942
   auto make_upper_prefixed = [](const std::string& input) {
-      const std::string prefix="AMD_";
-      std::string result = prefix + input;
-      for (char& c : result) {
-          c = std::toupper(static_cast<unsigned char>(c));
+      const std::string prefix = "AMD_";
+      std::stringstream input_stream(input);
+      std::string token;
+      std::string output;
+      bool first = true;
+
+      while (std::getline(input_stream, token, ',')) {
+          // Trim leading/trailing whitespace around each architecture token.
+          token.erase(token.begin(), std::find_if(token.begin(), token.end(),
+                                                  [](unsigned char c) {
+                                                      return !std::isspace(c);
+                                                  }));
+          token.erase(std::find_if(token.rbegin(), token.rend(),
+                                   [](unsigned char c) {
+                                       return !std::isspace(c);
+                                   }).base(),
+                      token.end());
+
+          std::string result = token;
+          if (token.compare("amdgcnspirv") == 0) {
+              result = "AMD_GCNSPIRV";
+          } else {
+              result = prefix + token;
+          }
+          for (char& c : result) {
+              c = std::toupper(static_cast<unsigned char>(c));
+          }
+
+          if (!first) output += ",";
+          output += result;
+          first = false;
       }
-      return result;
+
+      return output;
   };
   declare_configuration_metadata("architecture", "GPU architecture",
                                  make_upper_prefixed(KOKKOS_ARCH_AMD_GPU));
