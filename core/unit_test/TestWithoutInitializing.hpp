@@ -8,7 +8,28 @@ import kokkos.core;
 #include <Kokkos_Core.hpp>
 #endif
 
+#if defined(KOKKOS_ENABLE_HIP)
+#include <HIP/Kokkos_HIP_IsXnack.hpp>
+#endif
+
 #include "tools/include/ToolTestingUtilities.hpp"
+
+namespace {
+template <class ExecutionSpace>
+bool hip_runtime_uses_view_fill_for_zero_memset(const ExecutionSpace&) {
+  return false;
+}
+
+#if defined(KOKKOS_ENABLE_HIP)
+template <>
+inline bool hip_runtime_uses_view_fill_for_zero_memset<Kokkos::HIP>(
+    const Kokkos::HIP& exec) {
+  return Kokkos::HIP::hip_device_prop().integrated == 1 &&
+         Kokkos::Impl::gpu_system_can_access_system_allocations(
+             exec.hip_device());
+}
+#endif
+}  // namespace
 
 TEST(TEST_CATEGORY, resize_realloc_no_init) {
   using namespace Kokkos::Test::Tools;
@@ -199,11 +220,14 @@ TEST(TEST_CATEGORY, deep_copy_zero_memset) {
   listen_tool_events(Config::DisableAll(), Config::EnableKernels());
   Kokkos::View<int*, TEST_EXECSPACE> bla("bla", 8);
 
-  // for MI300A with unified memory, ZeroMemset uses a ViewFill-1D
   auto success = false;
-#ifdef KOKKOS_IMPL_HIP_UNIFIED_MEMORY
-  if constexpr (!std::is_same_v<TEST_EXECSPACE::memory_space,
-                                Kokkos::HostSpace>)
+#if defined(KOKKOS_ENABLE_HIP)
+  // For MI300A/APU with runtime-qualified system-allocation access, deep_copy
+  // of zero routes through a ViewFill kernel instead of ZeroMemset.
+  TEST_EXECSPACE exec;
+  const bool hip_runtime_uses_view_fill =
+      hip_runtime_uses_view_fill_for_zero_memset(exec);
+  if (hip_runtime_uses_view_fill)
     success = validate_existence(
         [&]() { Kokkos::deep_copy(bla, 0); },
         [&](BeginParallelForEvent e) {

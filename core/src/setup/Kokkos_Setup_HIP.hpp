@@ -39,10 +39,6 @@
 #endif
 // clang-format on
 
-#ifdef KOKKOS_ARCH_AMD_GFX942_APU
-#define KOKKOS_IMPL_HIP_UNIFIED_MEMORY
-#endif
-
 #define KOKKOS_HAS_NATIVE_HALF_TYPE
 #define KOKKOS_HAS_NATIVE_BHALF_TYPE
 

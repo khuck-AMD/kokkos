@@ -24,6 +24,9 @@ import kokkos.core_impl;
 #include <impl/Kokkos_Error.hpp>
 
 #include <cstdint>
+#ifdef KOKKOS_ENABLE_HIP
+#include <HIP/Kokkos_HIP_IsXnack.hpp>
+#endif
 
 namespace Kokkos {
 
@@ -228,9 +231,9 @@ class DualView : public ViewTraits<DataOrElementType, Properties...> {
       : modified_flags(
             Kokkos::view_alloc(typename t_modified_flags::execution_space{},
                                "DualView::modified_flags")),
-        d_view(label, n0, n1, n2, n3, n4, n5, n6, n7),
-        h_view(create_mirror_view(d_view))  // without UVM, host View mirrors
-  {}
+        d_view(label, n0, n1, n2, n3, n4, n5, n6, n7) {
+    impl_create_host_view_from_device<>();
+  }
 
   /// \brief Constructor that allocates View objects on both host and device.
   ///
@@ -269,12 +272,7 @@ class DualView : public ViewTraits<DataOrElementType, Properties...> {
       d_view = t_dev(arg_prop, n0, n1, n2, n3, n4, n5, n6, n7);
 
       // without UVM, host View mirrors
-      if constexpr (Kokkos::Impl::has_type<Impl::WithoutInitializing_t,
-                                           P...>::value)
-        h_view =
-            Kokkos::create_mirror_view(Kokkos::WithoutInitializing, d_view);
-      else
-        h_view = Kokkos::create_mirror_view(d_view);
+      impl_create_host_view_from_device<Impl::ViewCtorProp<P...>::initialize>();
     }
   }
 
@@ -869,12 +867,7 @@ class DualView : public ViewTraits<DataOrElementType, Properties...> {
             create_mirror_view_and_copy(typename t_dev::memory_space(), h_view);
       } else {
         ::Kokkos::realloc(arg_prop, d_view, n0, n1, n2, n3, n4, n5, n6, n7);
-        if constexpr (alloc_prop_input::initialize) {
-          h_view = create_mirror_view(typename t_host::memory_space(), d_view);
-        } else {
-          h_view = create_mirror_view(Kokkos::WithoutInitializing,
-                                      typename t_host::memory_space(), d_view);
-        }
+        resync_host(arg_prop);
       }
     } else if constexpr (alloc_prop_input::initialize) {
       if constexpr (alloc_prop_input::has_execution_space) {
@@ -1034,6 +1027,46 @@ class DualView : public ViewTraits<DataOrElementType, Properties...> {
   }
 
  private:
+  KOKKOS_INLINE_FUNCTION static constexpr bool
+  impl_is_runtime_alias_candidate() {
+#ifdef KOKKOS_ENABLE_HIP
+    return std::is_same_v<typename t_dev::execution_space, Kokkos::HIP> &&
+           std::is_same_v<typename t_host::memory_space, Kokkos::HostSpace>;
+#else
+    return false;
+#endif
+  }
+
+  bool impl_can_alias_host_view_to_device_view() const {
+#ifdef KOKKOS_ENABLE_HIP
+    if constexpr (impl_is_runtime_alias_candidate()) {
+      auto exec = typename t_dev::execution_space{};
+      return Kokkos::HIP::hip_device_prop().integrated == 1 &&
+             Kokkos::Impl::gpu_system_can_access_system_allocations(
+                 exec.hip_device());
+    }
+#endif
+    return false;
+  }
+
+  template <bool InitializeHostView = true>
+  void impl_create_host_view_from_device() {
+    if constexpr (InitializeHostView) {
+      if (impl_can_alias_host_view_to_device_view()) {
+        // On runtime-capable APUs in mixed builds, alias host view to the same
+        // allocation as d_view to retain low-overhead sync behavior.
+        h_view = t_host(
+            Kokkos::view_wrap(static_cast<typename t_host::pointer_type>(
+                d_view.data())),
+            d_view.layout());
+      } else {
+        h_view = create_mirror_view(d_view);
+      }
+    } else {
+      h_view = create_mirror_view(Kokkos::WithoutInitializing, d_view);
+    }
+  }
+
   // resync host mirror from device
   // this code was relocated from a lambda as it contains a `if constexpr`.
   // In some cases, both branches were evaluated, leading to a compile error
@@ -1041,12 +1074,19 @@ class DualView : public ViewTraits<DataOrElementType, Properties...> {
   inline void resync_host(Impl::ViewCtorProp<ViewCtorArgs...> const&) {
     using alloc_prop_input = Impl::ViewCtorProp<ViewCtorArgs...>;
 
-    if constexpr (alloc_prop_input::initialize) {
+    if (impl_can_alias_host_view_to_device_view()) {
+      h_view = t_host(
+          Kokkos::view_wrap(static_cast<typename t_host::pointer_type>(
+              d_view.data())),
+          d_view.layout());
+      return;
+    }
+
+    if constexpr (alloc_prop_input::initialize)
       h_view = create_mirror_view(typename t_host::memory_space(), d_view);
-    } else {
+    else
       h_view = create_mirror_view(Kokkos::WithoutInitializing,
                                   typename t_host::memory_space(), d_view);
-    }
   }
 
   // resync device mirror from host

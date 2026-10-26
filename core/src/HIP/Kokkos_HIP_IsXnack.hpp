@@ -37,6 +37,9 @@ bool xnack_boot_config_has_hmm_mirror();
 // Returns true iff the architecture of the gpu supports accessing system
 // allocated memory.
 bool gpu_arch_can_access_system_allocations(int device_id);
+// Returns true iff all runtime requirements are met for GPU access to system
+// allocated memory.
+bool gpu_system_can_access_system_allocations(int device_id);
 }  // namespace Kokkos::Impl
 
 #endif  // KOKKOS_HIP_ISXNACK_HPP

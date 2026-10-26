@@ -8,6 +8,8 @@
 #include <iostream>
 #include <fstream>
 #include <string_view>
+#include <mutex>
+#include <unordered_map>
 #include <hip/hip_runtime_api.h>
 
 #ifdef __linux__
@@ -19,6 +21,16 @@
 #include <HIP/Kokkos_HIP_Error.hpp>
 
 namespace {
+
+struct RuntimeCapabilityCache {
+  std::mutex mutex;
+  std::unordered_map<int, bool> gpu_arch_system_allocation_access;
+};
+
+RuntimeCapabilityCache& runtime_capability_cache() {
+  static RuntimeCapabilityCache cache;
+  return cache;
+}
 
 #ifdef __linux__
 // try to get `uname -r`. Returns an empty optional for any problem
@@ -82,12 +94,29 @@ bool xnack_boot_config_has_hmm_mirror() {
 }
 
 bool gpu_arch_can_access_system_allocations(int device_id) {
+  {
+    auto& cache = runtime_capability_cache();
+    std::lock_guard<std::mutex> const lock(cache.mutex);
+    auto const it = cache.gpu_arch_system_allocation_access.find(device_id);
+    if (it != cache.gpu_arch_system_allocation_access.end()) return it->second;
+  }
+
   hipDeviceProp_t props;
   KOKKOS_IMPL_HIP_SAFE_CALL(hipGetDeviceProperties(&props, device_id));
 
   // Prefer HIP runtime capability properties when available.
-  if (props.pageableMemoryAccess != 0) return true;
-  if (props.managedMemory == 0) return false;
+  if (props.pageableMemoryAccess != 0) {
+    auto& cache = runtime_capability_cache();
+    std::lock_guard<std::mutex> const lock(cache.mutex);
+    cache.gpu_arch_system_allocation_access[device_id] = true;
+    return true;
+  }
+  if (props.managedMemory == 0) {
+    auto& cache = runtime_capability_cache();
+    std::lock_guard<std::mutex> const lock(cache.mutex);
+    cache.gpu_arch_system_allocation_access[device_id] = false;
+    return false;
+  }
 
   std::string_view const arch_name = props.gcnArchName;
   auto has_prefix                  = [&](std::string_view const prefix) {
@@ -96,20 +125,34 @@ bool gpu_arch_can_access_system_allocations(int device_id) {
 
   // Fallback to architecture-based checks for runtimes where the capability
   // properties are not sufficient for this decision.
+  bool result = false;
   if (has_prefix("gfx908") || has_prefix("gfx90a") || has_prefix("gfx942") ||
-      has_prefix("gfx950"))
-    return true;
-  if (has_prefix("gfx906") || has_prefix("gfx1030") || has_prefix("gfx1100") ||
-      has_prefix("gfx1101") || has_prefix("gfx1103") || has_prefix("gfx1151") ||
-      has_prefix("gfx1152") || has_prefix("gfx1201"))
-    return false;
-
-  // Conservative fallback: unsupported/unknown architecture.
-  if (Kokkos::show_warnings()) {
-    std::cerr << "Warning: AMD GPU architecture '" << arch_name
-              << "' not recognized.\n";
+      has_prefix("gfx950")) {
+    result = true;
+  } else if (has_prefix("gfx906") || has_prefix("gfx1030") ||
+             has_prefix("gfx1100") || has_prefix("gfx1101") ||
+             has_prefix("gfx1103") || has_prefix("gfx1151") ||
+             has_prefix("gfx1152") || has_prefix("gfx1201")) {
+    result = false;
+  } else {
+    // Conservative fallback: unsupported/unknown architecture.
+    if (Kokkos::show_warnings()) {
+      std::cerr << "Warning: AMD GPU architecture '" << arch_name
+                << "' not recognized.\n";
+    }
   }
-  return false;
+
+  {
+    auto& cache = runtime_capability_cache();
+    std::lock_guard<std::mutex> const lock(cache.mutex);
+    cache.gpu_arch_system_allocation_access[device_id] = result;
+  }
+  return result;
+}
+
+bool gpu_system_can_access_system_allocations(int device_id) {
+  return xnack_boot_config_has_hmm_mirror() && xnack_environment_enabled() &&
+         gpu_arch_can_access_system_allocations(device_id);
 }
 
 }  // namespace Kokkos::Impl

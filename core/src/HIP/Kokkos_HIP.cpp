@@ -88,6 +88,16 @@ Kokkos::HIP::initialize WARNING: Could not determine that xnack is enabled.
 )warning";
   }
 
+  if (Kokkos::show_warnings() &&
+      !Kokkos::Impl::gpu_system_can_access_system_allocations(hip_device_id)) {
+    std::cerr << R"warning(
+Kokkos::HIP::initialize WARNING: Runtime requirements for GPU access to
+                                 system-allocated memory are not met on the
+                                 selected device. Kokkos will use conservative
+                                 HIP fallback behavior in memory operations.
+)warning";
+  }
+
   // theoretically on GFX 9XX GPUs, we can get 40 WF's / CU, but only can
   // sustain 32 see
   // https://github.com/ROCm/clr/blob/4d0b815d06751735e6a50fa46e913fdf85f751f0/hipamd/src/hip_platform.cpp#L362-L366

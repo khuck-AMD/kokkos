@@ -14,6 +14,10 @@ static_assert(false,
 #include <KokkosExp_MDRangePolicy.hpp>
 #include <Kokkos_Layout.hpp>
 #include <impl/Kokkos_ZeroMemset_fwd.hpp>
+#if defined(KOKKOS_ENABLE_HIP)
+#include <HIP/Kokkos_HIP.hpp>
+#include <HIP/Kokkos_HIP_IsXnack.hpp>
+#endif
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -931,15 +935,19 @@ inline std::enable_if_t<
 contiguous_fill_or_memset(
     const ExecutionSpace& exec_space, const View<DT, DP...>& dst,
     typename ViewTraits<DT, DP...>::const_value_type& value) {
-  // We allow user on an AMD APU with unified memory to `malloc` and wrap that
-  // in an unmanaged SharedSpace view. In ROCm <= 7.2.0 (and possibly later),
-  // hipMemsetAsync on a host-allocated pointer returns an hipErrorInvalidValue
-  // error, but accessing the data via a GPU kernel works as long as xnack is
-  // present and enabled (HSA_XNACK=1)
-#if defined(KOKKOS_IMPL_HIP_UNIFIED_MEMORY)
+  // We allow users on AMD APUs to `malloc` and wrap that in an unmanaged
+  // SharedSpace view. In ROCm <= 7.2.0 (and possibly later),
+  // hipMemsetAsync on a host-allocated pointer can return
+  // hipErrorInvalidValue, while the GPU-kernel fill path remains valid when
+  // runtime requirements for system-allocation access are met.
+#if defined(KOKKOS_ENABLE_HIP)
   if constexpr (std::is_same_v<ExecutionSpace, Kokkos::HIP>) {
-    contiguous_fill(exec_space, dst, value);
-    return;
+    if (Kokkos::HIP::hip_device_prop().integrated == 1 &&
+        Kokkos::Impl::gpu_system_can_access_system_allocations(
+            exec_space.hip_device())) {
+      contiguous_fill(exec_space, dst, value);
+      return;
+    }
   }
 #endif
   if (has_all_zero_bits(value))
